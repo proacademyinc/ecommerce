@@ -1,6 +1,5 @@
 """Offer Utility Methods. """
 import logging
-
 from decimal import Decimal
 
 from django.conf import settings
@@ -111,7 +110,6 @@ def send_assigned_offer_email(
         offer_assignment_id,
         learner_email,
         code,
-        enrollment_url,
         redemptions_remaining,
         code_expiration_date):
     """
@@ -124,22 +122,16 @@ def send_assigned_offer_email(
             Email of the customer who will receive the code.
         *code*
             Code for the user.
-        *enrollment_url*
-            URL for the user.
         *redemptions_remaining*
             Number of times the code can be redeemed.
         *code_expiration_date*
             Date till code is valid.
-
-    Returns:
-         True when successful or False in case of any exception
     """
 
     email_subject = settings.OFFER_ASSIGNMENT_EMAIL_DEFAULT_SUBJECT
     email_body = template.format(
         REDEMPTIONS_REMAINING=redemptions_remaining,
         USER_EMAIL=learner_email,
-        ENROLLMENT_URL=enrollment_url,
         CODE=code,
         EXPIRATION_DATE=code_expiration_date
     )
@@ -160,7 +152,41 @@ def send_revoked_offer_email(template, learner_email, code):
     email_subject = settings.OFFER_REVOKE_EMAIL_DEFAULT_SUBJECT
 
     email_body = template.format(
-        user_email=learner_email,
-        code=code,
+        USER_EMAIL=learner_email,
+        CODE=code,
+    )
+    send_offer_update_email.delay(learner_email, email_subject, email_body)
+
+
+def send_assigned_offer_reminder_email(
+        template,
+        learner_email,
+        code,
+        redeemed_offer_count,
+        total_offer_count,
+        code_expiration_date):
+    """
+    Arguments:
+       *template*
+           The email template with placeholders that will receive the following tokens
+       *learner_email*
+           Email of the customer who will receive the code.
+       *code*
+           Code for the user.
+       *redeemed_offer_count*
+           Number of times the code has been redeemed.
+       *total_offer_count*
+           Total number of offer assignments for this (code,email) pair
+       *code_expiration_date*
+           Date till code is valid.
+    """
+
+    email_subject = settings.OFFER_ASSIGNMENT_EMAIL_REMINDER_DEFAULT_SUBJECT
+    email_body = template.format(
+        REDEEMED_OFFER_COUNT=redeemed_offer_count,
+        TOTAL_OFFER_COUNT=total_offer_count,
+        USER_EMAIL=learner_email,
+        CODE=code,
+        EXPIRATION_DATE=code_expiration_date
     )
     send_offer_update_email.delay(learner_email, email_subject, email_body)
