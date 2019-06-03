@@ -56,10 +56,10 @@ MANAGERS = ADMINS
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.',
-        'NAME': '',
-        'USER': '',
-        'PASSWORD': '',
-        'HOST': '',
+        'NAME': 'ecommerce',
+        'USER': 'ecomm001',
+        'PASSWORD': 'password',
+        'HOST': 'localhost',
         'PORT': '',
         'ATOMIC_REQUESTS': True,
     }
@@ -418,7 +418,7 @@ AUTH_USER_MODEL = 'core.User'
 
 # See: http://getblimp.github.io/django-rest-framework-jwt/#additional-settings
 JWT_AUTH = {
-    'JWT_SECRET_KEY': None,
+    'JWT_SECRET_KEY': 'SET-ME-PLEASE',
     'JWT_ALGORITHM': 'HS256',
     'JWT_AUTH_COOKIE': 'edx-jwt-cookie',
     'JWT_VERIFY_EXPIRATION': True,
@@ -429,6 +429,9 @@ JWT_AUTH = {
     # NOTE (CCB): This is temporarily set to False until we decide what values are acceptable.
     'JWT_VERIFY_AUDIENCE': False,
     'JWT_PUBLIC_SIGNING_JWK_SET': None,
+    'JWT_AUTH_COOKIE_HEADER_PAYLOAD': 'edx-jwt-cookie-header-payload',
+    'JWT_AUTH_COOKIE_SIGNATURE': 'edx-jwt-cookie-signature',
+    'JWT_AUTH_REFRESH_COOKIE': 'edx-jwt-refresh-cookie'
 }
 
 # Service user for worker processes.
@@ -438,7 +441,7 @@ ECOMMERCE_SERVICE_WORKER_USERNAME = 'ecommerce_worker'
 PROSPECTUS_WORKER_USERNAME = 'prospectus_worker'
 
 # Used to access the Enrollment API. Set this to the same value used by the LMS.
-EDX_API_KEY = None
+EDX_API_KEY = 'PUT_YOUR_API_KEY_HERE'
 
 # Enables a special view that, when accessed, creates and logs in a new user.
 # This should NOT be enabled for production deployments.
@@ -513,8 +516,8 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 # Detailed information at: https://docs.djangoproject.com/en/dev/ref/settings/
 SESSION_COOKIE_NAME = 'ecommerce_sessionid'
 CSRF_COOKIE_NAME = 'ecommerce_csrftoken'
-LANGUAGE_COOKIE_NAME = 'ecommerce_language'
-SESSION_COOKIE_SECURE = False
+LANGUAGE_COOKIE_NAME = 'openedx-language-preference'
+SESSION_COOKIE_SECURE = True
 # END COOKIE CONFIGURATION
 
 
@@ -522,7 +525,7 @@ SESSION_COOKIE_SECURE = False
 # Default broker URL. See http://celery.readthedocs.io/en/latest/userguide/configuration.html#broker-url.
 # In order for tasks to be visible to the ecommerce worker, this must match the value of BROKER_URL
 # configured for the ecommerce worker!
-BROKER_URL = None
+BROKER_URL = 'amqp://celery:celery@127.0.0.1:5672'
 
 # Disable connection pooling. Connections may be severed by load balancers.
 # This forces the application to connect explicitly to the broker each time
@@ -573,7 +576,7 @@ BLACK_LIST_COUPON_COURSE_MODES = [u'audit', u'honor']
 
 # Theme settings
 # enable or disbale comprehensive theming
-ENABLE_COMPREHENSIVE_THEMING = True
+ENABLE_COMPREHENSIVE_THEMING = False
 
 # name for waffle switch to use for disabling theming on runtime.
 # Note: management command ignore this switch
@@ -693,7 +696,52 @@ OFFER_ASSIGNMENT_EMAIL_REMINDER_DEFAULT_TEMPLATE = '''
 OFFER_ASSIGNMENT_EMAIL_REMINDER_DEFAULT_SUBJECT = 'Reminder on edX course assignment'
 
 #SAILTHRU settings
-SAILTHRU_KEY = None
-SAILTHRU_SECRET = None
+SAILTHRU_KEY = 'sailthru key here'
+SAILTHRU_SECRET = 'sailthru secret here'
 
 USERNAME_REPLACEMENT_WORKER = "replace with valid username"
+
+CORS_ALLOW_CREDENTIALS = False
+ECOMMERCE_URL_ROOT = "http://localhost:8002"
+OSCAR_FROM_EMAIL = 'oscar@example.com'
+PLATFORM_NAME = 'Your Platform Name Here'
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SOCIAL_AUTH_EDX_OIDC_KEY = 'ecommerce-key'
+SOCIAL_AUTH_EDX_OIDC_SECRET = 'ecommerce-secret'
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+CORS_ORIGIN_WHITELIST = []
+
+ECOMMERCE_PAYMENT_PROCESSOR_CONFIG = {
+    'edx': {
+        'cybersource': {
+            'access_key': 'SET-ME-PLEASE',
+            'apple_pay_country_code': 'US',
+            'apple_pay_merchant_id_certificate_path': '/edx/etc/ssl/apple_pay_merchant.pem',
+            'apple_pay_merchant_id_domain_association': 'This value should also be in private configuration. '
+                                                        'It, too,\nwill span multiple lines.',
+            'apple_pay_merchant_identifier': 'merchant.com.example',
+            'cancel_page_url': '/checkout/cancel-checkout/',
+            'merchant_id': 'SET-ME-PLEASE',
+            'payment_page_url': 'https://testsecureacceptance.cybersource.com/pay',
+            'profile_id': 'SET-ME-PLEASE',
+            'receipt_page_url': '/checkout/receipt/',
+            'secret_key':  'SET-ME-PLEASE',
+            'send_level_2_3_details': True,
+            'soap_api_url': 'https://ics2wstest.ic3.com/commerce/1.x/transactionProcessor/'
+                            'CyberSourceTransaction_1.140.wsdl',
+            'sop_access_key': 'SET-ME-PLEASE',
+            'sop_payment_page_url': 'https://testsecureacceptance.cybersource.com/silent/pay',
+            'sop_profile_id': 'SET-ME-PLEASE',
+            'sop_secret_key': 'SET-ME-PLEASE',
+            'transaction_key': 'SET-ME-PLEASE'
+        },
+        'paypal': {
+            'cancel_url': '/checkout/cancel-checkout/',
+            'client_id': 'SET-ME-PLEASE',
+            'client_secret': 'SET-ME-PLEASE',
+            'error_url': '/checkout/error/',
+            'mode': 'sandbox',
+            'receipt_url': '/checkout/receipt/'
+        }
+    }
+}
