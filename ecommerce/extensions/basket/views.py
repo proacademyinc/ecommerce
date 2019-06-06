@@ -361,7 +361,7 @@ class BasketSummaryView(BasketView):
     @newrelic.agent.function_trace()
     def get(self, request, *args, **kwargs):
         basket = request.basket
-
+        messages.info(request, 'The new purchaser discount was automatically added.')
         try:
             properties = {
                 'cart_id': basket.id,
@@ -438,6 +438,7 @@ class BasketSummaryView(BasketView):
             'total_benefit': total_benefit,
             'line_price': (self.request.basket.total_incl_tax_excl_discounts / num_of_items) if num_of_items > 0 else 0,
             'lms_url_root': site_configuration.lms_url_root,
+            'discount_jwt': self.request.GET.get('discount_jwt'),
         })
         return context
 
