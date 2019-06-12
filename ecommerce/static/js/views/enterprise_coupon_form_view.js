@@ -66,8 +66,25 @@ define([
                         };
                     }
                 },
-                'input[name=enterprise_customer_catalog]': {
-                    observe: 'enterprise_customer_catalog'
+                'select[name=enterprise_customer_catalog]': {
+                    observe: 'enterprise_customer_catalog',
+                    selectOptions: {
+                        collection: function() {
+                            return ecommerce.coupons.enterprise_customer_catalogs;
+                        },
+                        defaultOption: {uuid: '', title: ''},
+                        labelPath: 'title',
+                        valuePath: 'uuid'
+                    },
+                    setOptions: {
+                        validate: true
+                    },
+                    onGet: function(val) {
+                        return _.isUndefined(val) || _.isNull(val) ? '' : val;
+                    },
+                    onSet: function(val) {
+                        return !_.isEmpty(val) && _.isString(val) ? val : null;
+                    }
                 },
                 'input[name=notify_email]': {
                     observe: 'notify_email',
@@ -85,6 +102,35 @@ define([
                 'change [name=tax_deduction]': 'toggleTaxDeductedSourceField',
                 'click .external-link': 'routeToLink',
                 'click #cancel-button': 'cancelButtonClicked'
+            },
+
+            fetchEnterpriseCustomerCatalogs: function() {
+                var self = this;
+                var enterpriseCustomer = this.model.get('enterprise_customer');
+
+                if (!_.isEmpty(enterpriseCustomer.id)) {
+                    console.log('fetching catalogs for ' + JSON.stringify(this.model.get('enterprise_customer')))
+                    ecommerce.coupons.enterprise_customer_catalogs.fetch(
+                        {
+                            data: {
+                                enterprise_customer: enterpriseCustomer.id
+                            },
+                            success: function() {
+                                self.toggleEnterpriseCatalogField(false);
+                            },
+                            error: function() {
+                                console.log('Failed to fetch catalogs for ' + enterpriseCustomer.name);
+                                self.toggleEnterpriseCatalogField(true);
+                            },
+                        }
+                    )
+                } else {
+                    self.toggleEnterpriseCatalogField(true);
+                }
+            },
+
+            toggleEnterpriseCatalogField: function(disable) {
+                this.$('select[name=enterprise_customer_catalog]').attr('disabled', disable);
             },
 
             getEditableAttributes: function() {
@@ -115,6 +161,7 @@ define([
                 this.listenTo(this.model, 'change:voucher_type', this.toggleVoucherTypeField);
                 this.listenTo(this.model, 'change:code', this.toggleCodeField);
                 this.listenTo(this.model, 'change:quantity', this.toggleQuantityField);
+                this.listenTo(this.model, 'change:enterprise_customer', this.fetchEnterpriseCustomerCatalogs);
             },
 
             cancelButtonClicked: function() {

@@ -725,6 +725,7 @@ define([
                 // Render the parent form/template
                 var catalogId = '';
                 var enterpriseCustomer = this.model.get('enterprise_customer');
+                var enterpriseCustomerCatalog = this.model.get('enterprise_customer_catalog');
 
                 this.$el.html(
                     this.template(

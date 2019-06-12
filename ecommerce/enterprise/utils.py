@@ -119,6 +119,39 @@ def get_enterprise_customers(site):
     )
 
 
+def get_enterprise_customer_catalogs(site, enterprise_customer_uuid):
+    """
+    Get catalogs associated with an Enterprise Customer.
+
+    Args:
+        site (Site): The site which is handling the current request
+        enterprise_customer_uuid (str): The uuid of the Enterprise Customer
+
+    Returns:
+        dict: The result set containing the content objects associated with the Enterprise Catalog.
+    """
+    resource = 'enterprise_catalogs'
+    partner_code = site.siteconfiguration.partner.short_code
+    cache_key = '{site_domain}_{partner_code}_{resource}_{uuid}'.format(
+        site_domain=site.domain,
+        partner_code=partner_code,
+        resource=resource,
+        uuid=enterprise_customer_uuid
+    )
+    cache_key = hashlib.md5(cache_key).hexdigest()
+
+    cached_response = TieredCache.get_cached_response(cache_key)
+    if cached_response.is_found:
+        return cached_response.value
+
+    client = get_enterprise_api_client(site)
+    endpoint = getattr(client, resource)
+    response = endpoint.get(enterprise_customer=enterprise_customer_uuid)
+    TieredCache.set_all_tiers(cache_key, response, settings.CATALOG_RESULTS_CACHE_TIMEOUT)
+
+    return response
+
+
 def get_enterprise_customer_consent_failed_context_data(request, voucher):
     """
     Get the template context to display a message informing the user that they were not enrolled in the course

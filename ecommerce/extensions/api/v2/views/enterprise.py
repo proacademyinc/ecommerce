@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from ecommerce.core.constants import COUPON_PRODUCT_CLASS_NAME
 from ecommerce.core.utils import log_message_and_raise_validation_error
-from ecommerce.enterprise.utils import get_enterprise_customers
+from ecommerce.enterprise.utils import get_enterprise_customers, get_enterprise_customer_catalogs
 from ecommerce.extensions.api.pagination import DatatablesDefaultPagination
 from ecommerce.extensions.api.serializers import (
     CouponCodeAssignmentSerializer,
@@ -62,10 +62,25 @@ DEPRECATED_COUPON_CATEGORIES = ['Bulk Enrollment']
 class EnterpriseCustomerViewSet(generics.GenericAPIView):
 
     permission_classes = (IsAuthenticated, IsAdminUser,)
+    queryset = ''
 
     def get(self, request):
         site = request.site
         return Response(data={'results': get_enterprise_customers(site)})
+
+
+class EnterpriseCustomerCatalogsViewSet(generics.GenericAPIView):
+
+    permission_classes = (IsAuthenticated, IsAdminUser,)
+    queryset = ''
+
+    def get(self, request):
+        site = request.site
+        response = get_enterprise_customer_catalogs(
+            site,
+            enterprise_customer_uuid=request.GET.get('enterprise_customer')
+        )
+        return Response(data={'results': response.get('results')})
 
 
 class EnterpriseCouponViewSet(CouponViewSet):
