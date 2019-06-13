@@ -531,7 +531,10 @@ class PaymentApiView(BasketLogicMixin, APIView):
         return Response(response)
 
 
-class VoucherAddView(BaseVoucherAddView):  # pylint: disable=function-redefined
+class AddVoucherLogicMixin(object):
+    """
+    AddVoucher logic for adding a voucher.
+    """
     def apply_voucher_to_basket(self, voucher):
         """
         Validates and applies voucher on basket.
@@ -558,76 +561,120 @@ class VoucherAddView(BaseVoucherAddView):  # pylint: disable=function-redefined
         else:
             messages.info(self.request, msg)
 
+    def check_for_empty_basket_error(self, code):
+        """
+        Returns a dict with error_code if the basket is empty, or None if no error.
+        """
+        username = self.request.user and self.request.user.username
+        if self.request.basket.is_empty:
+            logger.warning(
+                '[Code Redemption Failure] User attempted to apply a code to an empty basket. '
+                'User: %s, Basket: %s, Code: %s',
+                username, self.request.basket.id, code
+            )
+            return {
+                'error_code': 'empty_basket',
+            }
+        return None
+
+    def check_for_already_applied_voucher_error(self, code):
+        """
+        Returns a dict with error_code if the voucher was already applied, or None if no error.
+        """
+        username = self.request.user and self.request.user.username
+        if self.request.basket.contains_voucher(code):
+            logger.warning(
+                '[Code Redemption Failure] User tried to apply a code that is already applied. '
+                'User: %s, Basket: %s, Code: %s',
+                username, self.request.basket.id, code
+            )
+            return {
+                'error_code': 'already_applied_voucher',
+                'user_message': _("You have already added coupon code '{code}' to your basket.").format(code=code)
+            }
+        return None
+
+    def get_voucher_from_code(self, code):
+        """
+        Returns tuple (voucher, error_message (dict)).  Only if voucher is None should you expect an error_message.
+        """
+        try:
+            voucher = self.voucher_model._default_manager.get(code=code)  # pylint: disable=protected-access
+            return voucher, None
+        except self.voucher_model.DoesNotExist:
+            return None, {
+                'error_code': 'code_does_not_exist',
+                'user_message': _("Coupon code '{code}' does not exist.").format(code=code)
+            }
+
+
+class VoucherAddView(AddVoucherLogicMixin, BaseVoucherAddView):  # pylint: disable=function-redefined
     def form_valid(self, form):
         code = form.cleaned_data['code']
         username = self.request.user and self.request.user.username
-        if self.request.basket.is_empty:
-            logger.warning('[Code Redemption Failure] User attempted to apply a code to an empty basket. '
-                           'User: %s, Basket: %s, Code: %s',
-                           username, self.request.basket.id, code)
+        error_message = self.check_for_empty_basket_error(code)
+        if error_message:
             return redirect_to_referrer(self.request, 'basket:summary')
-        if self.request.basket.contains_voucher(code):
-            logger.warning('[Code Redemption Failure] User tried to apply a code that is already applied. '
-                           'User: %s, Basket: %s, Code: %s',
-                           username, self.request.basket.id, code)
-            messages.error(
-                self.request,
-                _("You have already added coupon code '{code}' to your basket.").format(code=code)
-            )
-        else:
-            try:
-                voucher = self.voucher_model._default_manager.get(code=code)  # pylint: disable=protected-access
-            except self.voucher_model.DoesNotExist:
-                messages.error(
-                    self.request,
-                    _("Coupon code '{code}' does not exist.").format(code=code)
-                )
-            else:
-                basket_lines = self.request.basket.all_lines()
 
-                # TODO: for multiline baskets, select the StockRecord for the product associated
-                # specifically with the code that was submitted.
-                stock_record = basket_lines[0].stockrecord
+        error_message = self.check_for_already_applied_voucher_error(code)
+        if error_message:
+            messages.error(self.request, error_message.user_message)
+            return redirect_to_referrer(self.request, 'basket:summary')
 
-                offer = voucher.best_offer
-                product = stock_record.product
-                email_confirmation_response = render_email_confirmation_if_required(self.request, offer, product)
-                if email_confirmation_response:
-                    return email_confirmation_response
+        voucher, error_message = self.get_voucher_from_code(code)
+        if error_message:
+            messages.error(self.request, error_message.user_message)
+            return redirect_to_referrer(self.request, 'basket:summary')
 
-                if get_enterprise_customer_from_voucher(self.request.site, voucher) is not None:
-                    # The below lines only apply if the voucher that was entered is attached
-                    # to an EnterpriseCustomer. If that's the case, then rather than following
-                    # the standard redemption flow, we kick the user out to the `redeem` flow.
-                    # This flow will handle any additional information that needs to be gathered
-                    # due to the fact that the voucher is attached to an Enterprise Customer.
-                    params = urlencode(
-                        {
-                            'code': code,
-                            'sku': stock_record.partner_sku,
-                            'failure_url': self.request.build_absolute_uri(
-                                '{path}?{params}'.format(
-                                    path=reverse('basket:summary'),
-                                    params=urlencode(
-                                        {
-                                            CONSENT_FAILED_PARAM: code
-                                        }
-                                    )
-                                )
-                            ),
-                        }
-                    )
-                    return HttpResponseRedirect(
+        basket_lines = self.request.basket.all_lines()
+
+        # TODO: for multiline baskets, select the StockRecord for the product associated
+        # specifically with the code that was submitted.
+        stock_record = basket_lines[0].stockrecord
+
+        offer = voucher.best_offer
+        product = stock_record.product
+        # TODO: ARCH-955: share this with AddVoucherApiView
+        email_confirmation_response = render_email_confirmation_if_required(self.request, offer, product)
+        if email_confirmation_response:
+            return email_confirmation_response
+
+        # TODO: how do we deal with this and the A/B experiment?
+        # TODO: ARCH-956: share this with AddVoucherApiView
+        if get_enterprise_customer_from_voucher(self.request.site, voucher) is not None:
+            # The below lines only apply if the voucher that was entered is attached
+            # to an EnterpriseCustomer. If that's the case, then rather than following
+            # the standard redemption flow, we kick the user out to the `redeem` flow.
+            # This flow will handle any additional information that needs to be gathered
+            # due to the fact that the voucher is attached to an Enterprise Customer.
+            params = urlencode(
+                {
+                    'code': code,
+                    'sku': stock_record.partner_sku,
+                    'failure_url': self.request.build_absolute_uri(
                         '{path}?{params}'.format(
-                            path=reverse('coupons:redeem'),
-                            params=params
+                            path=reverse('basket:summary'),
+                            params=urlencode(
+                                {
+                                    CONSENT_FAILED_PARAM: code
+                                }
+                            )
                         )
-                    )
-                self.apply_voucher_to_basket(voucher)
+                    ),
+                }
+            )
+            return HttpResponseRedirect(
+                '{path}?{params}'.format(
+                    path=reverse('coupons:redeem'),
+                    params=params
+                )
+            )
+
+        self.apply_voucher_to_basket(voucher)
         return redirect_to_referrer(self.request, 'basket:summary')
 
 
-class AddVoucherApiView(APIView):
+class AddVoucherApiView(AddVoucherLogicMixin, APIView):
     """
     Api for adding voucher to a basket.
 
@@ -640,19 +687,35 @@ class AddVoucherApiView(APIView):
     If unsuccessful, will return 406 with the error.
     """
     permission_classes = (IsAuthenticated,)
+    voucher_model = get_model('voucher', 'voucher')
 
     def post(self, request):  # pylint: disable=unused-argument
+        # TODO: Does code need to be trimmed to match original?
         code = request.data.get('code')
-        # TODO: ARCH-853: Replace mock implementation with real implementation
+
+        error_message = self.check_for_empty_basket_error(code)
+        if error_message:
+            return Response(error_message)
+
+        voucher, error_message = self.get_voucher_from_code(code)
+        if error_message:
+            return Response(error_message)
+
+        # TODO: ARCH-955: implement render_email_confirmation_if_required check
+        # TODO: ARCH-956: implement get_enterprise_customer_from_voucher check
+
+        self.apply_voucher_to_basket(voucher)
+
         return Response({
             'voucher': {
-                'id': 12345,
-                'code': code,
+                'id': voucher.id,
+                'code': voucher.code,
                 "benefit": {
-                    "type": "Percentage",
-                    "value": 20
+                    "type": voucher.benefit.type,
+                    "value": voucher.benefit.value,
                 },
             },
+            # TODO: ARCH-853: Replace mock implementation with real implementation
             'total_excl_discount': 112,
             'total_discount': 12,
             'order_total': 100,
