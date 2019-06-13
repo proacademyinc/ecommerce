@@ -72,6 +72,7 @@ class CybersourceSubmitViewTests(CybersourceMixin, TestCase):
             'state': 'MA',
             'postal_code': '02139',
             'country': 'US',
+            'merchant_defined_data1': 'course,,',
         }
 
     def _create_valid_basket(self):
@@ -152,6 +153,7 @@ class CybersourceSubmitViewTests(CybersourceMixin, TestCase):
             'bill_to_address_state': data['state'],
             'bill_to_forename': data['first_name'],
             'bill_to_surname': data['last_name'],
+            'merchant_defined_data1': data['merchant_defined_data1'],
         }
 
         expected = self.get_expected_transaction_parameters(

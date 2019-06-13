@@ -35,7 +35,7 @@ from ecommerce.extensions.payment.processors import (
     BaseClientSidePaymentProcessor,
     HandledProcessorResponse
 )
-from ecommerce.extensions.payment.utils import clean_field_value
+from ecommerce.extensions.payment.utils import clean_field_value, get_basket_program_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +185,7 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
             ),
             'override_custom_cancel_page': self.cancel_page_url,
         }
+        extra_data = []
         # Level 2/3 details
         if self.send_level_2_3_details:
             parameters['amex_data_taa1'] = site.name
@@ -209,6 +210,18 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
                 parameters['item_{}_unit_of_measure'.format(index)] = 'ITM'
                 parameters['item_{}_unit_price'.format(index)] = str(line.unit_price_incl_tax)
 
+                # For each line, add the pair of course_run_id,type as extra CSV data sent to Cybersource.
+                line_course = line.product.course
+                extra_data.append("course,{course_run_id},{course_type}".format(
+                    course_run_id=line_course.id if line_course else "",
+                    course_type=line_course.type if line_course else ""
+                ))
+
+            # Send a single merchant_defined_field (after the course fields) saving the basket's program, if it exists.
+            program_uuid = get_basket_program_uuid(basket)
+            if program_uuid:
+                extra_data.append("program,{program_uuid}".format(program_uuid=program_uuid))
+
         # Only send consumer_id for hosted payment page
         if not use_sop_profile:
             parameters['consumer_id'] = basket.owner.username
@@ -221,6 +234,14 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
         if any(pci_field in signed_field_names for pci_field in self.PCI_FIELDS):
             raise PCIViolation('One or more PCI-related fields is contained in the payment parameters. '
                                'This service is NOT PCI-compliant! Deactivate this service immediately!')
+
+        if extra_data:
+            # CyberSource allows us to send additional data in merchant_defined_data# fields.
+            # Only the 1st-4th merchant_defined_data# fields are stored against the payment token.
+            # The 5th-100th nerchant_defined_data# fields are passed through but not stored by Cybersource.
+            for num, item in enumerate(extra_data, start=1):
+                key = u"merchant_defined_data{num}".format(num=num)
+                parameters[key] = item
 
         return parameters
 
