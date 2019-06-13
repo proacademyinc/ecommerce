@@ -27,7 +27,7 @@ define([
 
             events: {
                 'click .voucher-report-button': 'downloadCouponReport',
-                'click .external-link': 'routeToLink',
+                'click .external-link': 'routeToLink'
             },
 
             template: _.template(CouponDetailTemplate),
