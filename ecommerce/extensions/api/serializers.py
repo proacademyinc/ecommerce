@@ -1095,7 +1095,7 @@ class CouponSerializer(ProductPaymentInfoMixin, serializers.ModelSerializer):
     def get_voucher_type(self, obj):
         return retrieve_voucher_usage(obj)
 
-    def get_enterprise_catalog_url_template(self, obj):
+    def get_enterprise_catalog_url_template(self, obj):  # pylint: disable=unused-argument
         return Path(settings.ENTERPRISE_API_URL) / "enterprise_catalogs/"
 
     class Meta(object):
