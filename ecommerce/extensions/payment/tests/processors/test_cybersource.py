@@ -118,8 +118,8 @@ class CybersourceTests(CybersourceMixin, PaymentProcessorTestCaseMixin, TestCase
         )
         self.assert_correct_transaction_parameters(
             extra_parameters={
-                'merchant_defined_data1': 'course,a/b/c,audit',
-                'merchant_defined_data2': 'program,test_bundle'
+                'merchant_defined_data1': 'program,test_bundle',
+                'merchant_defined_data2': 'course,a/b/c,audit'
             }
         )
 

@@ -195,6 +195,11 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
             # but, is not actually used by us/exposed on the order form.
             parameters['user_po'] = 'BLANK'
 
+            # Add an extra parameter specifying the basket's program, if it exists.
+            program_uuid = get_basket_program_uuid(basket)
+            if program_uuid:
+                extra_data.append("program,{program_uuid}".format(program_uuid=program_uuid))
+
             for index, line in enumerate(basket.all_lines()):
                 parameters['item_{}_code'.format(index)] = line.product.get_product_class().slug
                 parameters['item_{}_discount_amount '.format(index)] = str(line.discount_value)
@@ -210,17 +215,12 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
                 parameters['item_{}_unit_of_measure'.format(index)] = 'ITM'
                 parameters['item_{}_unit_price'.format(index)] = str(line.unit_price_incl_tax)
 
-                # For each line, add the pair of course_run_id,type as extra CSV data sent to Cybersource.
+                # For each line, add the pair of course_run_id,type as an extra CSV-formatted param sent to Cybersource.
                 line_course = line.product.course
                 extra_data.append("course,{course_run_id},{course_type}".format(
                     course_run_id=line_course.id if line_course else "",
                     course_type=line_course.type if line_course else ""
                 ))
-
-            # Send a single merchant_defined_field (after the course fields) saving the basket's program, if it exists.
-            program_uuid = get_basket_program_uuid(basket)
-            if program_uuid:
-                extra_data.append("program,{program_uuid}".format(program_uuid=program_uuid))
 
         # Only send consumer_id for hosted payment page
         if not use_sop_profile:
