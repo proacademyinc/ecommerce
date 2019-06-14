@@ -18,6 +18,7 @@ from oscar.apps.basket.views import VoucherAddView as BaseVoucherAddView
 from oscar.apps.basket.views import *  # pylint: disable=wildcard-import, unused-wildcard-import
 from oscar.core.prices import Price
 from requests.exceptions import ConnectionError, Timeout
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -679,65 +680,79 @@ class AddVoucherApiView(AddVoucherLogicMixin, APIView):
     Api for adding voucher to a basket.
 
     POST:
-    Adds voucher to a basket using the voucher's code.
-    {
-        "code": "SUMMER20"
-    }
-    Will return 200 and the relevant basket updates as json if successful.
-    If unsuccessful, will return 406 with the error.
     """
     permission_classes = (IsAuthenticated,)
     voucher_model = get_model('voucher', 'voucher')
 
     def post(self, request):  # pylint: disable=unused-argument
+        """
+        Adds voucher to a basket using the voucher's code.
+
+        Parameters:
+        {
+            "code": "SUMMER20"
+        }
+
+        If successful, adds voucher and returns 200 and the relevant basket updates.
+        If unsuccessful, returns 400 with the error.
+        """
         # TODO: Does code need to be trimmed to match original?
         code = request.data.get('code')
 
         error_message = self.check_for_empty_basket_error(code)
         if error_message:
-            return Response(error_message)
+            return Response(error_message, status=status.HTTP_400_BAD_REQUEST)
 
         voucher, error_message = self.get_voucher_from_code(code)
         if error_message:
-            return Response(error_message)
+            return Response(error_message, status=status.HTTP_400_BAD_REQUEST)
 
         # TODO: ARCH-955: implement render_email_confirmation_if_required check
         # TODO: ARCH-956: implement get_enterprise_customer_from_voucher check
 
+        # TODO: ARCH-853: (a.k.a. now)
+        # - switch messages to errors for API.  use user_message and let the UI just display it.
         self.apply_voucher_to_basket(voucher)
 
-        return Response({
-            'voucher': {
-                'id': voucher.id,
-                'code': voucher.code,
-                "benefit": {
-                    "type": voucher.benefit.type,
-                    "value": voucher.benefit.value,
+        return Response(
+            {
+                'voucher': {
+                    'id': voucher.id,
+                    'code': voucher.code,
+                    "benefit": {
+                        "type": voucher.benefit.type,
+                        "value": voucher.benefit.value,
+                    },
                 },
-            },
-            # TODO: ARCH-853: Replace mock implementation with real implementation
-            'total_excl_discount': 112,
-            'total_discount': 12,
-            'order_total': 100,
-        })
+                # TODO: ARCH-853: Replace mock implementation with real implementation
+                'total_excl_discount': 112,
+                'total_discount': 12,
+                'order_total': 100,
+            }
+        )
 
 
 class RemoveVoucherApiView(APIView):
     """
     Api for removing voucher from a basket.
 
-    DELETE:
-    Will return 200 and the relevant basket updates as json if successful.
-    If unsuccessful, will return 406 with the error.
-
-    NOTE: Because this is a backend-for-frontend api, we are ok with returning content for a DELETE api.
+    DELETE /payment-bff/v0/payment/vouchers/{voucherid}
     """
     permission_classes = (IsAuthenticated,)
 
     def delete(self, request, voucherid):  # pylint: disable=unused-argument
+        """
+        If successful, removes voucher and returns 200 and the relevant basket updates as json.
+        If unsuccessful, returns 400 with relevant error.
+        """
+        # Implementation is a copy of django-oscar's VoucherRemoveView without redirect.
+        # See: https://github.com/django-oscar/django-oscar/blob/3ee66877a2dbd49b2a0838c369205f4ffbc2a391/src/oscar/apps/basket/views.py#L389-L414
+
         # TODO: ARCH-853: Replace mock implementation with real implementation
-        return Response({
-            'total_excl_discount': 112,
-            'total_discount': 0,
-            'order_total': 112,
-        })
+        return Response(
+            {
+                'total_excl_discount': 112,
+                'total_discount': 0,
+                'order_total': 112,
+            }
+        )
