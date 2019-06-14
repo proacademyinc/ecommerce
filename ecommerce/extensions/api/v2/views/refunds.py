@@ -89,7 +89,7 @@ class RefundCreateView(generics.CreateAPIView):
         except User.DoesNotExist:
             raise BadRequestException('User "{}" does not exist.'.format(username))
 
-        if not user.lms_user_id:
+        if not user.lms_user_id_with_metric(usage='refund'):
             requested_by = None
             if request.user.is_authenticated():
                 requested_by = request.user.id
