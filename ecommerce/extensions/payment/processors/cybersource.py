@@ -195,10 +195,13 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
             # but, is not actually used by us/exposed on the order form.
             parameters['user_po'] = 'BLANK'
 
-            # Add an extra parameter specifying the basket's program, if it exists.
+            # Add a parameter specifying the basket's program, None if not present.
+            # This program UUID will *always* be in the merchant_defined_data1, if exists.
             program_uuid = get_basket_program_uuid(basket)
             if program_uuid:
                 extra_data.append("program,{program_uuid}".format(program_uuid=program_uuid))
+            else:
+                extra_data.append(None)
 
             for index, line in enumerate(basket.all_lines()):
                 parameters['item_{}_code'.format(index)] = line.product.get_product_class().slug
@@ -215,12 +218,15 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
                 parameters['item_{}_unit_of_measure'.format(index)] = 'ITM'
                 parameters['item_{}_unit_price'.format(index)] = str(line.unit_price_incl_tax)
 
-                # For each line, add the pair of course_run_id,type as an extra CSV-formatted param sent to Cybersource.
+                # For each basket line having a course product, add course_id and course type
+                # as an extra CSV-formatted parameter sent to Cybersource.
+                # These extra course parameters will be in parameters merchant_defined_data2+.
                 line_course = line.product.course
-                extra_data.append("course,{course_run_id},{course_type}".format(
-                    course_run_id=line_course.id if line_course else "",
-                    course_type=line_course.type if line_course else ""
-                ))
+                if line_course:
+                    extra_data.append("course,{course_id},{course_type}".format(
+                        course_id=line_course.id if line_course else None,
+                        course_type=line_course.type if line_course else None
+                    ))
 
         # Only send consumer_id for hosted payment page
         if not use_sop_profile:
@@ -240,8 +246,9 @@ class Cybersource(ApplePayMixin, BaseClientSidePaymentProcessor):
             # Only the 1st-4th merchant_defined_data# fields are stored against the payment token.
             # The 5th-100th nerchant_defined_data# fields are passed through but not stored by Cybersource.
             for num, item in enumerate(extra_data, start=1):
-                key = u"merchant_defined_data{num}".format(num=num)
-                parameters[key] = item
+                if item:
+                    key = u"merchant_defined_data{num}".format(num=num)
+                    parameters[key] = item
 
         return parameters
 

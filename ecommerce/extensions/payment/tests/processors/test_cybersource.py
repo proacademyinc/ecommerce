@@ -125,11 +125,18 @@ class CybersourceTests(CybersourceMixin, PaymentProcessorTestCaseMixin, TestCase
 
     def test_get_transaction_parameters_with_level2_3_details(self):
         """ Verify the processor returns parameters including Level 2/3 details. """
-        self.assert_correct_transaction_parameters(extra_parameters={'merchant_defined_data1': 'course,a/b/c,audit'})
+        self.assert_correct_transaction_parameters(
+            extra_parameters={
+                'merchant_defined_data2': 'course,a/b/c,audit'
+            }
+        )
 
     def test_get_transaction_parameters_with_extra_parameters(self):
         """ Verify the method supports adding additional unsigned parameters. """
-        extra_parameters = {'payment_method': 'card', 'merchant_defined_data1': 'course,a/b/c,audit'}
+        extra_parameters = {
+            'payment_method': 'card',
+            'merchant_defined_data2': 'course,a/b/c,audit'
+        }
         self.assert_correct_transaction_parameters(extra_parameters=extra_parameters)
 
     def test_get_transaction_parameters_with_quoted_product_title(self):
